@@ -20,7 +20,7 @@ foreach my $rss (@rssFeeds) {
 	my $alwaysDownload = $rss =~ /mydownloadRSS/;
 
 	foreach my $xml (get($rss)) {
-    	my $rp = new XML::RSS::Parser::Lite;
+		my $rp = new XML::RSS::Parser::Lite;
 		$rp->parse($xml);
 
  		for (my $i = 0; $i < $rp->count(); $i++) {
