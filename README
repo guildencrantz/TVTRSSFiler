@@ -1,0 +1,3 @@
+This project is released under the MIT License (see LICENSE).
+
+tvtorrents.pl downloads torrents from tvtorrents.com RSS feeds, check if the file has already been downloaded, and if not places the torrent file on the filesystem where a torrent downloadeder (I use rtorrent) can start downloading the file. When the download begins tvtorrents.pl will create a link to another location on the filesystem (allowing you to store files in a logical SHOW/EPISODE hierarchy with a SHOW.S#E#.EPISODE_TITLE.extension naming convention).
