@@ -6,6 +6,7 @@ use LWP::Simple;
 use XML::RSS::Parser::Lite;
 use HTML::Entities;
 use File::Slurp;
+use Getopt::Long;
 
 my $downloadDirectory = '/nas/.rtorrent/links/';
 my $torrentDirectory = '/nas/.rtorrent/torrents/';
@@ -14,8 +15,66 @@ my $destinationDirectory = '/nas/TV/';
 openlog('tvtorrents.pl', 'pid', 'local0');
 syslog('info', 'START');
 
-my @rssFeeds = "http://www.tvtorrents.com/mydownloadRSS?";
-push @rssFeeds, "http://www.tvtorrents.com/RssServlet?fav=true&interval=7+days";
+my $tvtDigest;
+my $tvtHash;
+my @tags;
+my $interval;
+my $help;
+GetOptions(
+	'digest|d=s'	=> \$tvtDigest,
+	'hash|s=s'		=> \$tvtHash,
+	'tag|t=s@'		=> \@tags,
+	'interval|i=s'	=> \$interval,
+	'help|h'		=> \$help
+);
+
+sub help() {
+	print <<EOH
+Usage: $0 --digest --hash [--tag --interval]
+	-d
+	--digest	Your TVTorrents.com RSS digest (login to TVTorrents and go to your RSS feed page--http://tvtorrents.com/loggedin/my/rss.do--and copy the "digest=" section of the URL from the "Recent torrents" link).
+	
+	-s
+	--hash		Your TVTorrents.com RSS hash (login to TVTorrents and go to your RSS feed page--http://tvtorrents.com/loggedin/my/rss.do--and copy the "hash=" section of the URL from the "Recent torrents" link).
+
+	-t
+	--tag		The tag you want to download. You can specify multiple tags by including this flag multiple times. If no tag is specified your favorites will be downloaded.
+
+	-i
+	--interval	The interval over which the torrents requested should come from (reference: http://tvtorrents.com/loggedin/faq_answer.do?id=104)
+
+	-h
+	--help		Print this message and exit.
+EOH
+}
+
+if ($help) {
+	&help();
+	exit;
+}
+
+unless ($tvtDigest) { 
+	print "You must specify your tvtorrents RSS Digest!\n\n"; 
+	&help();
+	die;
+}
+unless ($tvtHash) { 
+	print "You must specify your tvtorrents RSS Hash!\n\n"; 
+	&help(); 
+	die;
+}
+
+my @rssFeeds = sprintf("http://www.tvtorrents.com/mydownloadRSS?digest=%s&hash=%s", $tvtDigest, $tvtHash);
+my $baseTagURL = sprintf('http://www.tvtorrens.com/mytaggedRSS?digest=%s&hash=%s%s', $tvtDigest, $tvtHash, $interval ? "&intervas=$interval": '');
+if (@tags) {
+	foreach my $tag (@tags)
+	{
+		push @rssFeeds, sprintf('%s&tag=%s', $baseTagURL, $tag);
+	}
+}
+else {
+	push @rssFeeds, $baseTagURL;
+}
 foreach my $rss (@rssFeeds) {
 	my $alwaysDownload = $rss =~ /mydownloadRSS/;
 
