@@ -19,12 +19,18 @@ my $tvtDigest;
 my $tvtHash;
 my @tags;
 my $interval;
+my $delay;
+my $include;
+my $exclude;
 my $help;
 GetOptions(
 	'digest|d=s'	=> \$tvtDigest,
 	'hash|s=s'		=> \$tvtHash,
 	'tag|t=s@'		=> \@tags,
 	'interval|i=s'	=> \$interval,
+	'delay|y=s'		=> \$delay,
+	'include|n=s'	=> \$include,
+	'exclude|e=s'	=> \$exclude,
 	'help|h'		=> \$help
 );
 
@@ -42,6 +48,15 @@ Usage: $0 --digest --hash [--tag --interval]
 
 	-i
 	--interval	The interval over which the torrents requested should come from (reference: http://tvtorrents.com/loggedin/faq_answer.do?id=104)
+
+	-y
+	--delay		Specifies a delay before including an item, i.e. 30+minutes.
+
+	-n
+	--include	Regular Expression defining what MUST BE in the item for it to be included (reference: http://tvtorrents.com/loggedin/faq_answer.do?id=122)
+
+	-e
+	--exclude	Regular Expression defining what MUST NOT BE in the item for it to be included (reference: http://tvtorrents.com/loggedin/faq_answer.do?id=122)
 
 	-h
 	--help		Print this message and exit.
@@ -65,7 +80,8 @@ unless ($tvtHash) {
 }
 
 my @rssFeeds = sprintf("http://www.tvtorrents.com/mydownloadRSS?digest=%s&hash=%s", $tvtDigest, $tvtHash);
-my $baseTagURL = sprintf('http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s', $tvtDigest, $tvtHash, $interval ? "&interval=$interval": '');
+my $baseTagURL = sprintf('http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s%s%s%s', $tvtDigest, $tvtHash, $interval ? "&interval=$interval" : '', $delay ? "&delay=$delay" : '',
+	$include ? "&include=$include" : '', $exclude ? "&exclude=$exclude" : '');
 if (@tags) {
 	foreach my $tag (@tags)
 	{
