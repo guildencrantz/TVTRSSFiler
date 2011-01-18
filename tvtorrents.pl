@@ -80,8 +80,14 @@ unless ($tvtHash) {
 }
 
 my @rssFeeds = sprintf("http://www.tvtorrents.com/mydownloadRSS?digest=%s&hash=%s", $tvtDigest, $tvtHash);
-my $baseTagURL = sprintf('http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s%s%s%s', $tvtDigest, $tvtHash, $interval ? "&interval=$interval" : '', $delay ? "&delay=$delay" : '',
-	$include ? "&include=$include" : '', $exclude ? "&exclude=$exclude" : '');
+my $baseTagURL = sprintf(
+	'http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s%s%s%s', 
+	$tvtDigest, 
+	$tvtHash, 
+	$interval ? "&interval=$interval" : '', 
+	$delay ? "&delay=$delay" : '',
+	$include ? "&include=$include" : '', $exclude ? "&exclude=$exclude" : ''
+);
 if (@tags) {
 	foreach my $tag (@tags)
 	{
