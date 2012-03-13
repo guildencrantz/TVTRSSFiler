@@ -12,6 +12,11 @@ my $downloadDirectory = '/nas/.rtorrent/links/';
 my $torrentDirectory = '/nas/.rtorrent/torrents/';
 my $destinationDirectory = '/nas/TV/';
 
+my %allowed_extensions = (
+	'avi' => 1,
+	'mp4' => 1,
+);
+
 openlog('tvtorrents.pl', 'pid', 'local0');
 syslog('info', 'START');
 
@@ -81,12 +86,13 @@ unless ($tvtHash) {
 
 my @rssFeeds = sprintf("http://www.tvtorrents.com/mydownloadRSS?digest=%s&hash=%s", $tvtDigest, $tvtHash);
 my $baseTagURL = sprintf(
-	'http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s%s%s%s', 
-	$tvtDigest, 
-	$tvtHash, 
-	$interval ? "&interval=$interval" : '', 
+	'http://www.tvtorrents.com/mytaggedRSS?digest=%s&hash=%s%s%s%s%s',
+	$tvtDigest,
+	$tvtHash,
+	$interval ? "&interval=$interval" : '',
 	$delay ? "&delay=$delay" : '',
-	$include ? "&include=$include" : '', $exclude ? "&exclude=$exclude" : ''
+	$include ? "&include=$include" : '',
+	$exclude ? "&exclude=$exclude" : ''
 );
 if (@tags) {
 	foreach my $tag (@tags)
@@ -119,7 +125,8 @@ foreach my $rss (@rssFeeds) {
 			my $showName = $showDetails{'Show Name'};
 			$showName =~ s/ /_/g;
 
-			if($alwaysDownload || $filename =~ /avi$/) {
+			my $extension = ($filename =~ m/([^.]+)$/)[0];
+			if($alwaysDownload || $allowed_extensions{$extension}) {
 				if(!$alwaysDownload && -e "$downloadDirectory$filename") {
 					syslog('info', "file ($filename) was found in the links directory");
 				} else {
@@ -142,7 +149,7 @@ foreach my $rss (@rssFeeds) {
 					} elsif($alwaysDownload && $#downloadedEps > 1) {
 						syslog('err', "There is more than one file matching episode ($destinationName) already downloaded, you'll have to fix that before we can reseed automatically.");
 					} else {
-						$destinationName .= $showTitle . ".avi";
+						$destinationName .= "$showTitle.$extension";
 
 						if(-e "$destinationDirectory$showName") {
 							syslog('info', "show directory was found");
@@ -166,7 +173,7 @@ foreach my $rss (@rssFeeds) {
 					}
 				}
 			} else {
-				syslog('info', "File ($filename) is not an avi");
+				syslog('info', "File ($filename) has extension '$extension', which is not in %allowed_extensions");
 			}
 		}
 	}
