@@ -17,7 +17,7 @@ my %allowed_extensions = (
 	'mp4' => 1,
 );
 
-openlog('tvtorrents.pl', 'pid', 'local0');
+openlog('tvtorrents.pl', 'pid', 'local0') or die $!;
 syslog('info', 'START');
 
 my $tvtDigest;
@@ -132,6 +132,7 @@ foreach my $rss (@rssFeeds) {
 				} else {
 					my $showTitle = $showDetails{'Show Title'};
 					$showTitle =~ s/ /_/g;
+					$showTitle =~ s|/|-|g; # Replace slashes in titles with dashes, so they aren't treated as directories when trying to create links.
 
 					if($showDetails{'Episode'} =~ /^\d$/) {
 						$showDetails{'Episode'} = sprintf "%02d", $showDetails{'Episode'};
@@ -166,7 +167,9 @@ foreach my $rss (@rssFeeds) {
 								syslog('debug', "Waiting for '$downloadDirectory$filename' to be created");
 								sleep(1);
 							}
-							link("$downloadDirectory$filename", "$destinationDirectory$showName/$destinationName"); 
+							link("$downloadDirectory$filename", "$destinationDirectory$showName/$destinationName")
+								or syslog('error', "Unable to create link \"$downloadDirectory$filename\" to \"$destinationDirectory$showName/$destinationName\": $!\n");
+
 
 							syslog('info', "rtorrent has created the download file and the link has been created.");
 						}
