@@ -200,7 +200,7 @@ foreach my $feed (@rssFeeds) {
 								sleep(1);
 							}
 							link("$downloadDirectory$filename", "$destinationDirectory$showName/$destinationName")
-								or syslog('error', "Unable to create link \"$downloadDirectory$filename\" to \"$destinationDirectory$showName/$destinationName\": $!\n");
+								or syslog('err', "Unable to create link \"$downloadDirectory$filename\" to \"$destinationDirectory$showName/$destinationName\": $!\n");
 
 							$newShow = 1;
 
