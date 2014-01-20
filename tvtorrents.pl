@@ -8,6 +8,8 @@ use HTML::Entities;
 use File::Slurp;
 use Getopt::Long;
 
+use Data::Dumper;
+
 my $downloadDirectory    = '.tvtorrents/links/';
 my $torrentDirectory     = '.tvtorrents/torrents/';
 my $destinationDirectory = './TV/';
@@ -125,10 +127,14 @@ else {
 }
 
 my $newShow = 0;
-foreach my $rss (@rssFeeds) {
-	my $alwaysDownload = $rss =~ /mydownloadRSS/;
+foreach my $feed (@rssFeeds) {
+	my $alwaysDownload = $feed =~ /mydownloadRSS/;
 
-	foreach my $xml (get($rss)) {
+	foreach my $xml (get($feed)) {
+		if (not defined $xml) {
+			syslog('err', "Unable to retrieve '$feed'");
+			next;
+		}
 		my $rp = new XML::RSS::Parser::Lite;
 		$rp->parse($xml);
 
