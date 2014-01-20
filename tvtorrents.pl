@@ -8,8 +8,6 @@ use HTML::Entities;
 use File::Slurp;
 use Getopt::Long;
 
-use Data::Dumper;
-
 my $downloadDirectory    = '.tvtorrents/links/';
 my $torrentDirectory     = '.tvtorrents/torrents/';
 my $destinationDirectory = './TV/';
@@ -24,18 +22,22 @@ sub downloadTorrent {
 	my %args = @_;
 	$args{url} || die "The required parameter 'url' was not passed to downloadTorrent!";
 	$args{filename} || die "The required parameter 'filename' was not passed to downloadTorrent!";
+	$args{useragent} || die "The required parameter 'useragent' was not passed to downloadTorrent!";
 
-	my $torrent = get(decode_entities($args{url}));
+	my $response = $args{useragent}->get(decode_entities($args{url}));
 
-	if(defined $torrent) {
+	if($response->is_success) {
 		open(TORRENT, sprintf ">%s%s.torrent", $torrentDirectory, $args{filename});
-		print TORRENT $torrent;
+		print TORRENT $response->content;
 		close TORRENT;
 	} else {
-		syslog('err', "Unable to retrieve torrent.");
+		syslog('err', sprintf "Unable to retrieve torrent at '%s'\n%s\n%s.",
+		                      $args{url},
+							  $response->status_line,
+							  $response->decoded_content );
 	}
 
-	return defined $torrent;
+	return $response->is_success;
 }
 
 sub help() {
@@ -126,17 +128,19 @@ else {
 	push @rssFeeds, $baseTagURL;
 }
 
+my $ua = LWP::UserAgent->new;
+$ua->agent('Mozilla/5.0 TVTRSSFiler');
+
 my $newShow = 0;
 foreach my $feed (@rssFeeds) {
 	my $alwaysDownload = $feed =~ /mydownloadRSS/;
 
-	foreach my $xml (get($feed)) {
-		if (not defined $xml) {
-			syslog('err', "Unable to retrieve '$feed'");
-			next;
+	foreach my $response ($ua->get($feed)) {
+		unless ($response->is_success) {
+			syslog('err', sprintf 'Unable to retrieve "%s": \n%s\n%s', $feed, $response->status_line, $response->decoded_content);
 		}
 		my $rp = new XML::RSS::Parser::Lite;
-		$rp->parse($xml);
+		$rp->parse($response->decoded_content);
 
 		for (my $i = 0; $i < $rp->count(); $i++) {
 			my $show = $rp->get($i);
@@ -174,7 +178,7 @@ foreach my $feed (@rssFeeds) {
 						syslog('info', "This episode ($destinationName) was already downloaded, will skip it.");
 					} elsif($alwaysDownload && $#downloadedEps == 1) {
 						link("$downloadDirectory$filename", $downloadedEps[0]);
-						&downloadTorrent(url=>$show->get('url'), filename=>$filename);
+						&downloadTorrent(url=>$show->get('url'), filename=>$filename, useragent=>$ua);
 					} elsif($alwaysDownload && $#downloadedEps > 1) {
 						syslog('err', "There is more than one file matching episode ($destinationName) already downloaded, you'll have to fix that before we can reseed automatically.");
 					} else {
@@ -188,7 +192,7 @@ foreach my $feed (@rssFeeds) {
 							mkdir "$destinationDirectory$showName" or syslog('err', "Unable to create directory '$destinationDirectory$showName'");
 						}
 
-						if(&downloadTorrent(url=>$show->get('url'), filename=>$filename)) {
+						if(&downloadTorrent(url=>$show->get('url'), filename=>$filename, useragent=>$ua)) {
 							syslog('info', "Torrent was saved, waiting for the rtorrent to create the download file, will then create link to destination");
 
 							while(!-e "$downloadDirectory$filename") {
