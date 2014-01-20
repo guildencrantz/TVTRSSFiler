@@ -8,43 +8,40 @@ use HTML::Entities;
 use File::Slurp;
 use Getopt::Long;
 
-my $downloadDirectory = '/nas/.rtorrent/links/';
-my $torrentDirectory = '/nas/.rtorrent/torrents/';
-my $destinationDirectory = '/nas/TV/';
+my $downloadDirectory    = '.tvtorrents/links/';
+my $torrentDirectory     = '.tvtorrents/torrents/';
+my $destinationDirectory = './TV/';
 
 my %allowed_extensions = (
 	'avi' => 1,
 	'mp4' => 1,
+	'mkv' => 1,
 );
 
-openlog('tvtorrents.pl', 'pid', 'local0') or die $!;
-syslog('info', 'START');
+sub downloadTorrent {
+	my %args = @_;
+	$args{url} || die "The required parameter 'url' was not passed to downloadTorrent!";
+	$args{filename} || die "The required parameter 'filename' was not passed to downloadTorrent!";
 
-my $tvtDigest;
-my $tvtHash;
-my @tags;
-my $interval;
-my $delay;
-my $include;
-my $exclude;
-my $help;
-GetOptions(
-	'digest|d=s'	=> \$tvtDigest,
-	'hash|s=s'		=> \$tvtHash,
-	'tag|t=s@'		=> \@tags,
-	'interval|i=s'	=> \$interval,
-	'delay|y=s'		=> \$delay,
-	'include|n=s'	=> \$include,
-	'exclude|e=s'	=> \$exclude,
-	'help|h'		=> \$help
-);
+	my $torrent = get(decode_entities($args{url}));
+
+	if(defined $torrent) {
+		open(TORRENT, sprintf ">%s%s.torrent", $torrentDirectory, $args{filename});
+		print TORRENT $torrent;
+		close TORRENT;
+	} else {
+		syslog('err', "Unable to retrieve torrent.");
+	}
+
+	return defined $torrent;
+}
 
 sub help() {
 	print <<EOH
 Usage: $0 --digest --hash [--tag --interval]
 	-d
 	--digest	Your TVTorrents.com RSS digest (login to TVTorrents and go to your RSS feed page--http://tvtorrents.com/loggedin/my/rss.do--and copy the "digest=" section of the URL from the "Recent torrents" link).
-	
+
 	-s
 	--hash		Your TVTorrents.com RSS hash (login to TVTorrents and go to your RSS feed page--http://tvtorrents.com/loggedin/my/rss.do--and copy the "hash=" section of the URL from the "Recent torrents" link).
 
@@ -68,19 +65,41 @@ Usage: $0 --digest --hash [--tag --interval]
 EOH
 }
 
+openlog('tvtorrents.pl', 'pid', 'local0') or die $!;
+syslog('info', 'START');
+
+my $tvtDigest;
+my $tvtHash;
+my @tags;
+my $interval;
+my $delay;
+my $include;
+my $exclude;
+my $help;
+GetOptions(
+	'digest|d=s'   => \$tvtDigest,
+	'hash|s=s'     => \$tvtHash,
+	'tag|t=s@'     => \@tags,
+	'interval|i=s' => \$interval,
+	'delay|y=s'    => \$delay,
+	'include|n=s'  => \$include,
+	'exclude|e=s'  => \$exclude,
+	'help|h'       => \$help
+);
+
 if ($help) {
 	&help();
 	exit;
 }
 
-unless ($tvtDigest) { 
-	print "You must specify your tvtorrents RSS Digest!\n\n"; 
+unless ($tvtDigest) {
+	print "You must specify your tvtorrents RSS Digest!\n\n";
 	&help();
 	die;
 }
-unless ($tvtHash) { 
-	print "You must specify your tvtorrents RSS Hash!\n\n"; 
-	&help(); 
+unless ($tvtHash) {
+	print "You must specify your tvtorrents RSS Hash!\n\n";
+	&help();
 	die;
 }
 
@@ -90,10 +109,11 @@ my $baseTagURL = sprintf(
 	$tvtDigest,
 	$tvtHash,
 	$interval ? "&interval=$interval" : '',
-	$delay ? "&delay=$delay" : '',
-	$include ? "&include=$include" : '',
-	$exclude ? "&exclude=$exclude" : ''
+	$delay    ? "&delay=$delay"       : '',
+	$include  ? "&include=$include"   : '',
+	$exclude  ? "&exclude=$exclude"   : '',
 );
+
 if (@tags) {
 	foreach my $tag (@tags)
 	{
@@ -103,6 +123,8 @@ if (@tags) {
 else {
 	push @rssFeeds, $baseTagURL;
 }
+
+my $newShow = 0;
 foreach my $rss (@rssFeeds) {
 	my $alwaysDownload = $rss =~ /mydownloadRSS/;
 
@@ -110,12 +132,12 @@ foreach my $rss (@rssFeeds) {
 		my $rp = new XML::RSS::Parser::Lite;
 		$rp->parse($xml);
 
- 		for (my $i = 0; $i < $rp->count(); $i++) {
+		for (my $i = 0; $i < $rp->count(); $i++) {
 			my $show = $rp->get($i);
 			syslog('debug', $show->get('description'));
 
 			my %showDetails;
-	 		foreach(split(/; ?/, decode_entities($show->get('description')))) {
+			foreach(split(/; ?/, decode_entities($show->get('description')))) {
 				/(.+?):\s*(.+?)\s*$/;
 				$showDetails{$1} = $2;
 			}
@@ -145,7 +167,7 @@ foreach my $rss (@rssFeeds) {
 					if(!$alwaysDownload && $#downloadedEps >= 0) {
 						syslog('info', "This episode ($destinationName) was already downloaded, will skip it.");
 					} elsif($alwaysDownload && $#downloadedEps == 1) {
-						link("$downloadDirectory$filename", $downloadedEps[0]); 
+						link("$downloadDirectory$filename", $downloadedEps[0]);
 						&downloadTorrent(url=>$show->get('url'), filename=>$filename);
 					} elsif($alwaysDownload && $#downloadedEps > 1) {
 						syslog('err', "There is more than one file matching episode ($destinationName) already downloaded, you'll have to fix that before we can reseed automatically.");
@@ -170,6 +192,7 @@ foreach my $rss (@rssFeeds) {
 							link("$downloadDirectory$filename", "$destinationDirectory$showName/$destinationName")
 								or syslog('error', "Unable to create link \"$downloadDirectory$filename\" to \"$destinationDirectory$showName/$destinationName\": $!\n");
 
+							$newShow = 1;
 
 							syslog('info', "rtorrent has created the download file and the link has been created.");
 						}
@@ -182,23 +205,11 @@ foreach my $rss (@rssFeeds) {
 	}
 }
 
+if ($newShow) {
+	get("http://localhost:32400/library/sections/3/refresh");
+}
+
 syslog('info', 'ENDED');
 closelog;
 
-sub downloadTorrent {
-	my %args = @_;
-	$args{url} || die "The required parameter 'url' was not passed to downloadTorrent!";
-	$args{filename} || die "The required parameter 'filename' was not passed to downloadTorrent!";
-
-	my $torrent = get(decode_entities($args{url}));
-
-	if(defined $torrent) {
-		open(TORRENT, sprintf ">%s%s.torrent", $torrentDirectory, $args{filename});
-		print TORRENT $torrent;
-		close TORRENT;
-	} else {
-		syslog('err', "Unable to retrieve torrent.");
-	}
-
-	return defined $torrent;
-}
+# vim: set ai noet :
