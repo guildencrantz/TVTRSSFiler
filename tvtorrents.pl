@@ -38,7 +38,7 @@ GetOptions(
 	'include|n=s'  => \$include,
 	'exclude|e=s'  => \$exclude,
 	'torrents=s'   => \$torrentDirectory,
-	'download=s'   => \$downloadDirectory,
+	'downloads=s'  => \$downloadDirectory,
 	'dest=s'       => \$destinationDirectory,
 	'help|h'       => \$help
 );
@@ -290,7 +290,7 @@ sub downloadTorrent {
 
 sub help() {
 	print <<EOH
-Usage: $0 --digest --hash [--tag --interval --torrents --download --dest]
+Usage: $0 --digest --hash [--tag --interval --torrents --downloads --dest]
 	-d
 	--digest	Your TVTorrents.com RSS digest (login to TVTorrents and go to your RSS feed page--http://tvtorrents.com/loggedin/my/rss.do--and copy the "digest=" section of the URL from the "Recent torrents" link).
 
@@ -315,7 +315,7 @@ Usage: $0 --digest --hash [--tag --interval --torrents --download --dest]
 	--torrents  Path to directory where the torrent files should be downloaded to.
 				Default=.tvtorrents/links/
 
-	--download	Path to directory where rtorrent will download the actual files
+	--downloads	Path to directory where rtorrent will download the actual files
 				Default=.tvtorrents/torrents/
 
 	--dest		Path to directory where the link targets should be.
